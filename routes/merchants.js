@@ -256,6 +256,162 @@ router.post('/', async (req, res) => {
 });
 
 /**
+ * PATCH /api/merchants/:id/stores/:storeIndex
+ * Update a specific store within a merchant
+ * NOTE: This route MUST come before the general PATCH /:id route
+ */
+router.patch('/:id/stores/:storeIndex', async (req, res) => {
+  try {
+    console.log('=== PATCH /api/merchants/:id/stores/:storeIndex ===');
+    console.log('Request params:', req.params);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+
+    const { id, storeIndex } = req.params;
+    const index = parseInt(storeIndex);
+
+    // Validate MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid ID format',
+        message: 'The provided ID is not a valid MongoDB ObjectId',
+      });
+    }
+
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid store index',
+        message: 'Store index must be a non-negative number',
+      });
+    }
+
+    // Fetch existing merchant
+    const existingMerchant = await Merchant.findById(id);
+    if (!existingMerchant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Not found',
+        message: `Merchant with ID ${id} not found`,
+      });
+    }
+
+    if (!existingMerchant.stores || index >= existingMerchant.stores.length) {
+      return res.status(404).json({
+        success: false,
+        error: 'Store not found',
+        message: `Store at index ${index} not found`,
+      });
+    }
+
+    const { storeName, platform, platformId, hostName, storeDetails, apiKey, apiSecret, businessRules } = req.body;
+
+    // Validate required fields
+    if (!storeName || !platform || !storeDetails) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        message: 'storeName, platform and storeDetails are required',
+      });
+    }
+
+    // Validate platform exists
+    const platformExists = await Merchant.validatePlatform(platform);
+    if (!platformExists) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid platform',
+        message: `Platform "${platform}" does not exist in ecommerce_details collection`,
+      });
+    }
+
+    // Validate business rules
+    if (!businessRules || typeof businessRules !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required field',
+        message: 'businessRules object is required',
+      });
+    }
+
+    const ruleValidation = await Merchant.validateBusinessRules(businessRules);
+    if (!ruleValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid business rules',
+        message: ruleValidation.message,
+        invalidKeys: ruleValidation.invalidKeys,
+      });
+    }
+
+    const valueValidation = Merchant.validateBusinessRuleValues(businessRules);
+    if (!valueValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid business rule values',
+        message: valueValidation.errors.join('; '),
+      });
+    }
+
+    // Update the store at the specified index
+    const updateField = `stores.${index}`;
+    const updateData = {
+      [updateField]: {
+        storeId: existingMerchant.stores[index].storeId, // Keep existing storeId
+        storeName,
+        platform,
+        platformId,
+        hostName,
+        storeDetails,
+        apiKey,
+        apiSecret,
+        businessRules,
+        enabled: existingMerchant.stores[index].enabled, // Keep existing enabled status
+      }
+    };
+
+    const updatedMerchant = await Merchant.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      {
+        new: true,
+        runValidators: false,
+      }
+    );
+
+    if (!updatedMerchant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Not found',
+        message: `Merchant with ID ${id} not found`,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Store updated successfully',
+      data: updatedMerchant,
+    });
+  } catch (error) {
+    console.error('Error updating store:', error);
+
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        message: error.message,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update store',
+      message: error.message,
+    });
+  }
+});
+
+/**
  * PATCH /api/merchants/:id
  * Update a specific merchant by MongoDB _id
  * Allows updating stores, businessName, and email

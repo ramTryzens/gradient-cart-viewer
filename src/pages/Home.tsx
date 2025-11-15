@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
-import { ShoppingCart, LogIn, UserPlus, Sparkles, TrendingUp, Shield, Zap } from "lucide-react";
+import { ShoppingCart, LogIn, UserPlus, Workflow, Globe, Settings, Key } from "lucide-react";
 import Footer from "@/components/Footer";
 import Logo from "@/components/Logo";
 
@@ -12,24 +12,24 @@ const Home = () => {
 
   const features = [
     {
-      icon: Sparkles,
-      title: "AI-Powered Insights",
-      description: "Smart recommendations and personalized rewards based on customer behavior"
+      icon: Workflow,
+      title: "n8n Powered Smart AI reward platform",
+      description: "Automate intelligent reward workflows with n8n integration and AI-driven decision making"
     },
     {
-      icon: TrendingUp,
-      title: "Real-Time Analytics",
-      description: "Track cart performance and conversion rates with live dashboards"
+      icon: Globe,
+      title: "Supports Multi Platform",
+      description: "Seamlessly integrate across web, mobile, and multiple e-commerce platforms"
     },
     {
-      icon: Shield,
-      title: "Secure & Reliable",
-      description: "Enterprise-grade security for your customer data and transactions"
+      icon: Settings,
+      title: "Handle Complex Business Rules",
+      description: "Configure sophisticated reward rules and business logic tailored to your needs"
     },
     {
-      icon: Zap,
-      title: "Lightning Fast",
-      description: "Optimized performance for seamless shopping experiences"
+      icon: Key,
+      title: "Secure Key Management",
+      description: "Advanced encryption and secure API key management to protect your sensitive data"
     }
   ];
 

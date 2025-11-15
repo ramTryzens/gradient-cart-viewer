@@ -11,11 +11,6 @@ const ecommerceDetailSchema = new mongoose.Schema(
       required: [true, 'Platform name is required'],
       trim: true,
     },
-    api_version: {
-      type: String,
-      required: [true, 'API version is required'],
-      trim: true,
-    },
     api_urls: {
       type: Map,
       of: {

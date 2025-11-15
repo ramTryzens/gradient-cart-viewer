@@ -53,7 +53,6 @@ const EcommerceTab = () => {
   );
   const [formData, setFormData] = useState({
     name: "",
-    api_version: "",
     enabled: true,
     api_urls: [] as ApiUrlEntry[],
     required_credentials: [] as CredentialField[],
@@ -116,7 +115,6 @@ const EcommerceTab = () => {
 
       setFormData({
         name: platform.name,
-        api_version: platform.api_version,
         enabled: platform.enabled,
         api_urls: apiUrlsArray,
         required_credentials: platform.required_credentials || [],
@@ -125,7 +123,6 @@ const EcommerceTab = () => {
       setEditingPlatform(null);
       setFormData({
         name: "",
-        api_version: "",
         enabled: true,
         api_urls: [],
         required_credentials: [],
@@ -139,7 +136,6 @@ const EcommerceTab = () => {
     setEditingPlatform(null);
     setFormData({
       name: "",
-      api_version: "",
       enabled: true,
       api_urls: [],
       required_credentials: [],
@@ -201,17 +197,9 @@ const EcommerceTab = () => {
   };
 
   const handleSubmit = () => {
-    if (!formData.name || !formData.api_version) {
+    if (!formData.name) {
       toast.error("Please fill in all required fields");
       return;
-    }
-
-    // Validate API URLs if any
-    for (const apiUrl of formData.api_urls) {
-      if (!apiUrl.name || !apiUrl.endpoint || !apiUrl.method) {
-        toast.error("Please fill in all API URL fields or remove empty entries");
-        return;
-      }
     }
 
     // Validate credentials if any
@@ -242,7 +230,6 @@ const EcommerceTab = () => {
 
     const platformData = {
       name: formData.name,
-      api_version: formData.api_version,
       enabled: formData.enabled,
       api_urls: Object.keys(apiUrlsObject).length > 0 ? apiUrlsObject : undefined,
       required_credentials: cleanedCredentials, // Always send the array, even if empty
@@ -300,7 +287,6 @@ const EcommerceTab = () => {
           <TableHeader>
             <TableRow className="hover:bg-white/5 border-white/10">
               <TableHead className="text-foreground">Platform Name</TableHead>
-              <TableHead className="text-foreground">API Version</TableHead>
               <TableHead className="text-foreground">Credentials</TableHead>
               <TableHead className="text-foreground">Status</TableHead>
               <TableHead className="text-foreground">Created</TableHead>
@@ -310,7 +296,7 @@ const EcommerceTab = () => {
           <TableBody>
             {platforms?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   No platforms found. Add your first platform to get started.
                 </TableCell>
               </TableRow>
@@ -322,9 +308,6 @@ const EcommerceTab = () => {
                 >
                   <TableCell className="font-medium text-foreground">
                     {platform.name}
-                  </TableCell>
-                  <TableCell className="text-foreground">
-                    {platform.api_version}
                   </TableCell>
                   <TableCell className="text-foreground">
                     {platform.required_credentials && platform.required_credentials.length > 0 ? (
@@ -401,8 +384,8 @@ const EcommerceTab = () => {
             </DialogTitle>
             <DialogDescription>
               {editingPlatform
-                ? "Update platform details and API endpoint configuration"
-                : "Create a new e-commerce platform integration with API endpoints"}
+                ? "Update platform details and credential requirements"
+                : "Create a new e-commerce platform integration"}
             </DialogDescription>
           </DialogHeader>
 
@@ -416,18 +399,6 @@ const EcommerceTab = () => {
                   setFormData({ ...formData, name: e.target.value })
                 }
                 placeholder="e.g., Shopify, BigCommerce"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="api-version">API Version *</Label>
-              <Input
-                id="api-version"
-                value={formData.api_version}
-                onChange={(e) =>
-                  setFormData({ ...formData, api_version: e.target.value })
-                }
-                placeholder="e.g., V3, 2024-01"
               />
             </div>
 
@@ -445,101 +416,6 @@ const EcommerceTab = () => {
                   setFormData({ ...formData, enabled: checked })
                 }
               />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>API Endpoints (Optional)</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Define API endpoints for this platform
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddApiUrl}
-                  className="gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Endpoint
-                </Button>
-              </div>
-
-              {formData.api_urls.length > 0 && (
-                <div className="space-y-3 border border-white/10 rounded-lg p-4 max-h-96 overflow-y-auto">
-                  {formData.api_urls.map((apiUrl, index) => (
-                    <div
-                      key={index}
-                      className="space-y-2 p-3 bg-white/5 rounded-lg relative"
-                    >
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveApiUrl(index)}
-                        className="absolute top-2 right-2 h-6 w-6 p-0"
-                      >
-                        <X className="w-4 h-4 text-red-400" />
-                      </Button>
-
-                      <div className="space-y-2 pr-8">
-                        <div>
-                          <Label className="text-xs">Endpoint Name</Label>
-                          <Input
-                            value={apiUrl.name}
-                            onChange={(e) =>
-                              handleApiUrlChange(index, "name", e.target.value)
-                            }
-                            placeholder="e.g., cart, orders, products"
-                            className="mt-1"
-                          />
-                        </div>
-
-                        <div>
-                          <Label className="text-xs">Endpoint Path</Label>
-                          <Input
-                            value={apiUrl.endpoint}
-                            onChange={(e) =>
-                              handleApiUrlChange(index, "endpoint", e.target.value)
-                            }
-                            placeholder="e.g., /cart, /api/v1/orders"
-                            className="mt-1"
-                          />
-                        </div>
-
-                        <div>
-                          <Label className="text-xs">HTTP Method</Label>
-                          <Select
-                            value={apiUrl.method}
-                            onValueChange={(value) =>
-                              handleApiUrlChange(index, "method", value)
-                            }
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="GET">GET</SelectItem>
-                              <SelectItem value="POST">POST</SelectItem>
-                              <SelectItem value="PUT">PUT</SelectItem>
-                              <SelectItem value="PATCH">PATCH</SelectItem>
-                              <SelectItem value="DELETE">DELETE</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {formData.api_urls.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground text-sm border border-white/10 rounded-lg border-dashed">
-                  No API endpoints defined. Click "Add Endpoint" to add one.
-                </div>
-              )}
             </div>
 
             <div className="space-y-2">

@@ -1,4 +1,49 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
+
+// Encryption settings
+const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+const IV_LENGTH = 16;
+
+/**
+ * Encrypt sensitive data
+ */
+function encrypt(text) {
+  if (!text) return text;
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(
+    ENCRYPTION_ALGORITHM,
+    Buffer.from(ENCRYPTION_KEY.slice(0, 64), 'hex'),
+    iv
+  );
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + ':' + encrypted;
+}
+
+/**
+ * Decrypt sensitive data
+ */
+function decrypt(text) {
+  if (!text) return text;
+  try {
+    const parts = text.split(':');
+    const iv = Buffer.from(parts.shift(), 'hex');
+    const encryptedText = parts.join(':');
+    const decipher = crypto.createDecipheriv(
+      ENCRYPTION_ALGORITHM,
+      Buffer.from(ENCRYPTION_KEY.slice(0, 64), 'hex'),
+      iv
+    );
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (error) {
+    console.error('Decryption error:', error);
+    return text; // Return original if decryption fails
+  }
+}
 
 /**
  * Merchant Schema
@@ -44,9 +89,24 @@ const merchantSchema = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: 'EcommerceDetail',
         },
+        hostName: {
+          type: String,
+          required: [true, 'Host name is required'],
+          trim: true,
+        },
         storeDetails: {
           type: mongoose.Schema.Types.Mixed, // Dynamic object to store platform-specific credentials
           required: [true, 'Store details are required'],
+        },
+        apiKey: {
+          type: String,
+          required: [true, 'API Key is required'],
+          trim: true,
+        },
+        apiSecret: {
+          type: String,
+          required: [true, 'API Secret is required'],
+          trim: true,
         },
         businessRules: {
           type: Map,
@@ -127,9 +187,9 @@ merchantSchema.statics.validateBusinessRuleValues = function (businessRules) {
   const errors = [];
 
   for (const [key, value] of Object.entries(businessRules)) {
-    // Check if value is boolean or number
-    if (typeof value !== 'boolean' && typeof value !== 'number') {
-      errors.push(`Rule "${key}" has invalid value type. Expected boolean or number, got ${typeof value}`);
+    // Check if value is boolean, number, or string
+    if (typeof value !== 'boolean' && typeof value !== 'number' && typeof value !== 'string') {
+      errors.push(`Rule "${key}" has invalid value type. Expected boolean, number, or string, got ${typeof value}`);
     }
 
     // If it's a number, ensure it's not negative
@@ -143,6 +203,94 @@ merchantSchema.statics.validateBusinessRuleValues = function (businessRules) {
     errors,
   };
 };
+
+/**
+ * Pre-save middleware to encrypt API credentials
+ */
+merchantSchema.pre('save', function (next) {
+  if (this.stores && this.stores.length > 0) {
+    this.stores.forEach((store) => {
+      // Encrypt apiKey if present and not already encrypted
+      if (store.apiKey && !store.apiKey.includes(':')) {
+        store.apiKey = encrypt(store.apiKey);
+      }
+      // Encrypt apiSecret if present and not already encrypted
+      if (store.apiSecret && !store.apiSecret.includes(':')) {
+        store.apiSecret = encrypt(store.apiSecret);
+      }
+    });
+  }
+  next();
+});
+
+/**
+ * Pre-update middleware to encrypt API credentials
+ */
+merchantSchema.pre('findOneAndUpdate', function (next) {
+  const update = this.getUpdate();
+
+  // Handle $push operations for stores
+  if (update.$push && update.$push.stores) {
+    const storesToAdd = update.$push.stores.$each || [update.$push.stores];
+    storesToAdd.forEach((store) => {
+      if (store.apiKey && !store.apiKey.includes(':')) {
+        store.apiKey = encrypt(store.apiKey);
+      }
+      if (store.apiSecret && !store.apiSecret.includes(':')) {
+        store.apiSecret = encrypt(store.apiSecret);
+      }
+    });
+  }
+
+  // Handle direct stores update
+  if (update.stores) {
+    update.stores.forEach((store) => {
+      if (store.apiKey && !store.apiKey.includes(':')) {
+        store.apiKey = encrypt(store.apiKey);
+      }
+      if (store.apiSecret && !store.apiSecret.includes(':')) {
+        store.apiSecret = encrypt(store.apiSecret);
+      }
+    });
+  }
+
+  next();
+});
+
+/**
+ * Post-find middleware to decrypt API credentials
+ */
+function decryptStores(doc) {
+  if (doc && doc.stores && doc.stores.length > 0) {
+    doc.stores.forEach((store) => {
+      if (store.apiKey) {
+        store.apiKey = decrypt(store.apiKey);
+      }
+      if (store.apiSecret) {
+        store.apiSecret = decrypt(store.apiSecret);
+      }
+    });
+  }
+  return doc;
+}
+
+merchantSchema.post('find', function (docs) {
+  if (Array.isArray(docs)) {
+    docs.forEach((doc) => decryptStores(doc));
+  }
+});
+
+merchantSchema.post('findOne', function (doc) {
+  decryptStores(doc);
+});
+
+merchantSchema.post('findOneAndUpdate', function (doc) {
+  decryptStores(doc);
+});
+
+merchantSchema.post('save', function (doc) {
+  decryptStores(doc);
+});
 
 // Create and export the model
 const Merchant = mongoose.model('Merchant', merchantSchema);
