@@ -124,3 +124,41 @@ All colors MUST be HSL.
   background-size: 400% 400%;
   animation: gradient-xy 3s ease infinite;
 }
+
+/* Clerk Auth Forms - Full Width */
+.cl-cardBox,
+.cl-signIn-start,
+.cl-signUp-start,
+.cl-internal-p8bmz4 {
+  width: 100% !important;
+}
+
+/* Clerk Auth Forms - Optional Label Text */
+.cl-formFieldOptionalText,
+.cl-internal-1hm2xqg {
+  color: hsl(var(--foreground)) !important;
+  opacity: 0.5 !important;
+  font-size: 0.875rem !important;
+}
+
+/* Clerk Auth Forms - Readable Placeholders */
+.cl-formFieldInput::placeholder,
+.cl-internal-1tnbf7r::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 0.6 !important;
+}
+
+/* Clerk Auth Forms - Readable Label Rows */
+.cl-formFieldLabelRow,
+.cl-formFieldLabelRow__firstName,
+.cl-formFieldLabelRow__lastName,
+.cl-formFieldLabelRow__emailAddress,
+.cl-formFieldLabelRow__password,
+.cl-internal-66mzqw {
+  color: hsl(var(--foreground)) !important;
+}
+
+.cl-formFieldHintText {
+  color: hsl(var(--foreground)) !important;
+  opacity: 0.5 !important;
+}

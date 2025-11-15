@@ -537,7 +537,7 @@ const MerchantsTab = () => {
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {editingMerchant ? "Edit Store Configuration" : "Add New Store Configuration"}
@@ -753,7 +753,7 @@ const MerchantsTab = () => {
 
             <div className="space-y-2">
               <Label>Business Rules * (Select at least one)</Label>
-              <div className="border border-white/10 rounded-lg p-4 space-y-3 max-h-60 overflow-y-auto">
+              <div className="border border-white/10 rounded-lg p-4 space-y-3">
                 {!rules || rules.length === 0 ? (
                   <div className="text-center py-4 text-muted-foreground text-sm">
                     No business rules available. Please create rules first in the Rules tab.
