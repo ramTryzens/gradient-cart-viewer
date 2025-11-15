@@ -8,6 +8,8 @@ import ecommerceDetailsRouter from './routes/ecommerceDetails.js';
 import rulesRouter from './routes/rules.js';
 import merchantsRouter from './routes/merchants.js';
 import userRoutes from './server/routes/userRoutes.js';
+import smartOffersRouter from './routes/smartOffers.js';
+import magentoRouter from './routes/magento.js';
 
 dotenv.config();
 
@@ -20,6 +22,10 @@ app.use(express.json());
 // BigCommerce API configuration
 const BIGCOMMERCE_API_URL = process.env.BIGCOMMERCE_API_URL;
 const BIGCOMMERCE_TOKEN = process.env.BIGCOMMERCE_TOKEN;
+
+// Magento API configuration
+const MAGENTO_API_URL = process.env.MAGENTO_API_URL || 'https://qa-psp-mage.tryzens-ignite.com';
+const MAGENTO_TOKEN = process.env.MAGENTO_TOKEN;
 
 // API Routes
 app.use('/api/users', userRoutes);
@@ -41,6 +47,12 @@ app.use('/api/rules', rulesRouter);
 
 // Merchants routes
 app.use('/api/merchants', merchantsRouter);
+
+// Smart offers routes (n8n webhook proxy)
+app.use('/api', smartOffersRouter);
+
+// Magento routes
+app.use('/api/magento', magentoRouter);
 
 // Proxy endpoint for cart details
 app.get('/api/carts/:cartId', async (req, res) => {
@@ -97,10 +109,13 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`🚀 Backend server running on http://localhost:${PORT}`);
       console.log(`📦 BigCommerce API URL: ${BIGCOMMERCE_API_URL}`);
-      console.log(`🔑 Token configured: ${BIGCOMMERCE_TOKEN ? 'Yes' : 'No'}`);
+      console.log(`🔑 BigCommerce Token configured: ${BIGCOMMERCE_TOKEN ? 'Yes' : 'No'}`);
+      console.log(`🛍️  Magento API URL: ${MAGENTO_API_URL}`);
+      console.log(`🔑 Magento Token configured: ${MAGENTO_TOKEN ? 'Yes' : 'No'}`);
       console.log(`\n🎯 Available API Endpoints:`);
       console.log(`   - GET    /api/health`);
-      console.log(`   - GET    /api/carts/:cartId`);
+      console.log(`   - GET    /api/carts/:cartId (BigCommerce)`);
+      console.log(`   - GET    /api/magento/carts/:cartId (Magento)`);
       console.log(`   - GET    /api/ecommerce-details`);
       console.log(`   - POST   /api/ecommerce-details`);
       console.log(`   - PATCH  /api/ecommerce-details/:id`);
@@ -115,6 +130,7 @@ async function startServer() {
       console.log(`   - PATCH  /api/merchants/:id/stores/:storeIndex`);
       console.log(`   - PATCH  /api/merchants/:id`);
       console.log(`   - DELETE /api/merchants/:id`);
+      console.log(`   - POST   /api/evaluate (Smart Offers - n8n webhook proxy)`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error.message);

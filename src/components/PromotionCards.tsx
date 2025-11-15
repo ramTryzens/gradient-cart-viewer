@@ -98,17 +98,18 @@ const PromotionCards = ({ cartId, customerId, cartTotal = 0 }: PromotionCardsPro
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch("https://tryzens-ai.app.n8n.cloud/webhook-test/getSmartOffers", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": "test@123"
-          },
-          body: JSON.stringify({
-            customerId: customerId || 3,
-            cartId: cartId || "50656685-567c-42c9-9a1e-9389e9f76b68"
-          })
-        });
+        // const response = await fetch("https://tryzens-ai.app.n8n.cloud/webhook-test/getSmartOffers", {
+        //   method: "POST",
+        //   headers: {
+        //     "Content-Type": "application/json",
+        //     "X-API-Key": "test@123"
+        //   },
+        //   body: JSON.stringify({
+        //     customerId: customerId || 3,
+        //     cartId: cartId || "50656685-567c-42c9-9a1e-9389e9f76b68"
+        //   })
+        // });
+        const response = { ok: false, status: 500};
 
         if (!response.ok) {
           throw new Error(`API Error: ${response.status}`);
