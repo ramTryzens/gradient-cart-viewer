@@ -419,13 +419,115 @@ const EcommerceTab = () => {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Required Credentials (Optional)</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Define credentials that merchants need to provide when setting up this platform
-                  </p>
-                </div>
+              <div>
+                <Label>Required Credentials (Optional)</Label>
+                <p className="text-sm text-muted-foreground">
+                  Define credentials that merchants need to provide when setting up this platform
+                </p>
+              </div>
+
+              <div className="border border-white/10 rounded-lg p-4 space-y-3">
+                {formData.required_credentials.length > 0 && (
+                  <>
+                    {formData.required_credentials.map((credential, index) => (
+                      <div
+                        key={index}
+                        className="space-y-2 p-3 bg-white/5 rounded-lg relative"
+                      >
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveCredential(index)}
+                          className="absolute top-2 right-2 h-6 w-6 p-0"
+                        >
+                          <X className="w-4 h-4 text-red-400" />
+                        </Button>
+
+                        <div className="space-y-2 pr-8">
+                          <div>
+                            <Label className="text-xs">Credential Key *</Label>
+                            <Input
+                              value={credential.key}
+                              onChange={(e) =>
+                                handleCredentialChange(index, "key", e.target.value)
+                              }
+                              placeholder="e.g., storeHash, accessToken, apiKey"
+                              className="mt-1"
+                            />
+                          </div>
+
+                          <div>
+                            <Label className="text-xs">Label *</Label>
+                            <Input
+                              value={credential.label}
+                              onChange={(e) =>
+                                handleCredentialChange(index, "label", e.target.value)
+                              }
+                              placeholder="e.g., Store Hash, Access Token, API Key"
+                              className="mt-1"
+                            />
+                          </div>
+
+                          <div>
+                            <Label className="text-xs">Description</Label>
+                            <Input
+                              value={credential.description || ""}
+                              onChange={(e) =>
+                                handleCredentialChange(index, "description", e.target.value)
+                              }
+                              placeholder="e.g., Your BigCommerce store hash from the URL"
+                              className="mt-1"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-xs">Field Type</Label>
+                              <Select
+                                value={credential.type}
+                                onValueChange={(value) =>
+                                  handleCredentialChange(index, "type", value)
+                                }
+                              >
+                                <SelectTrigger className="mt-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="text">Text</SelectItem>
+                                  <SelectItem value="password">Password</SelectItem>
+                                  <SelectItem value="url">URL</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="flex items-end">
+                              <div className="flex items-center space-x-2 pb-2">
+                                <Switch
+                                  id={`required-${index}`}
+                                  checked={credential.required}
+                                  onCheckedChange={(checked) =>
+                                    handleCredentialChange(index, "required", checked)
+                                  }
+                                />
+                                <Label htmlFor={`required-${index}`} className="text-xs">
+                                  Required
+                                </Label>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {formData.required_credentials.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No credentials defined. Click "Add Credential" to add one.
+                  </div>
+                )}
+
                 <Button
                   type="button"
                   variant="outline"
@@ -437,107 +539,6 @@ const EcommerceTab = () => {
                   Add Credential
                 </Button>
               </div>
-
-              {formData.required_credentials.length > 0 && (
-                <div className="space-y-3 border border-white/10 rounded-lg p-4">
-                  {formData.required_credentials.map((credential, index) => (
-                    <div
-                      key={index}
-                      className="space-y-2 p-3 bg-white/5 rounded-lg relative"
-                    >
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveCredential(index)}
-                        className="absolute top-2 right-2 h-6 w-6 p-0"
-                      >
-                        <X className="w-4 h-4 text-red-400" />
-                      </Button>
-
-                      <div className="space-y-2 pr-8">
-                        <div>
-                          <Label className="text-xs">Credential Key *</Label>
-                          <Input
-                            value={credential.key}
-                            onChange={(e) =>
-                              handleCredentialChange(index, "key", e.target.value)
-                            }
-                            placeholder="e.g., storeHash, accessToken, apiKey"
-                            className="mt-1"
-                          />
-                        </div>
-
-                        <div>
-                          <Label className="text-xs">Label *</Label>
-                          <Input
-                            value={credential.label}
-                            onChange={(e) =>
-                              handleCredentialChange(index, "label", e.target.value)
-                            }
-                            placeholder="e.g., Store Hash, Access Token, API Key"
-                            className="mt-1"
-                          />
-                        </div>
-
-                        <div>
-                          <Label className="text-xs">Description</Label>
-                          <Input
-                            value={credential.description || ""}
-                            onChange={(e) =>
-                              handleCredentialChange(index, "description", e.target.value)
-                            }
-                            placeholder="e.g., Your BigCommerce store hash from the URL"
-                            className="mt-1"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-xs">Field Type</Label>
-                            <Select
-                              value={credential.type}
-                              onValueChange={(value) =>
-                                handleCredentialChange(index, "type", value)
-                              }
-                            >
-                              <SelectTrigger className="mt-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="text">Text</SelectItem>
-                                <SelectItem value="password">Password</SelectItem>
-                                <SelectItem value="url">URL</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="flex items-end">
-                            <div className="flex items-center space-x-2 pb-2">
-                              <Switch
-                                id={`required-${index}`}
-                                checked={credential.required}
-                                onCheckedChange={(checked) =>
-                                  handleCredentialChange(index, "required", checked)
-                                }
-                              />
-                              <Label htmlFor={`required-${index}`} className="text-xs">
-                                Required
-                              </Label>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {formData.required_credentials.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground text-sm border border-white/10 rounded-lg border-dashed">
-                  No credentials defined. Click "Add Credential" to add one.
-                </div>
-              )}
             </div>
           </div>
 
