@@ -75,7 +75,7 @@ const Home = () => {
         />
       ))}
 
-      <div className="max-w-7xl mx-auto relative z-10 flex-grow flex flex-col">
+      <div className="w-full max-w-[1280px] mx-auto relative z-10 flex-grow flex flex-col">
         {/* Logo */}
         <Logo />
 

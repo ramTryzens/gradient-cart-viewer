@@ -97,7 +97,7 @@ const Dashboard = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-bg p-4 md:p-8 flex flex-col">
-        <div className="max-w-7xl mx-auto flex-grow flex flex-col">
+        <div className="w-full max-w-[1280px] mx-auto flex-grow flex flex-col">
           {/* Logo */}
           <Logo />
 
