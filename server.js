@@ -110,7 +110,9 @@ async function startServer() {
       console.log(`   - PATCH  /api/rules/:id`);
       console.log(`   - DELETE /api/rules/:id`);
       console.log(`   - GET    /api/merchants`);
+      console.log(`   - GET    /api/merchants/by-user/:userId`);
       console.log(`   - POST   /api/merchants`);
+      console.log(`   - PATCH  /api/merchants/:id/stores/:storeIndex`);
       console.log(`   - PATCH  /api/merchants/:id`);
       console.log(`   - DELETE /api/merchants/:id`);
     });

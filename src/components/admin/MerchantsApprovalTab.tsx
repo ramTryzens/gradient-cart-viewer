@@ -88,7 +88,7 @@ const MerchantsApprovalTab = () => {
             <Users className="w-8 h-8 text-blue-400" />
             <div>
               <p className="text-sm text-muted-foreground">Total Merchants</p>
-              <p className="text-3xl font-bold text-foreground">{users.length}</p>
+              <p className="text-3xl font-bold text-foreground">{users.filter(u => !u.isAdmin).length}</p>
             </div>
           </div>
         </div>
@@ -99,7 +99,7 @@ const MerchantsApprovalTab = () => {
             <div>
               <p className="text-sm text-muted-foreground">Approved</p>
               <p className="text-3xl font-bold text-foreground">
-                {users.filter(u => u.isApproved).length}
+                {users.filter(u => u.isApproved && !u.isAdmin).length}
               </p>
             </div>
           </div>
@@ -111,7 +111,7 @@ const MerchantsApprovalTab = () => {
             <div>
               <p className="text-sm text-muted-foreground">Pending</p>
               <p className="text-3xl font-bold text-foreground">
-                {users.filter(u => !u.isApproved).length}
+                {users.filter(u => !u.isApproved && !u.isAdmin).length}
               </p>
             </div>
           </div>

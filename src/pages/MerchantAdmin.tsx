@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useUser, UserButton } from "@clerk/clerk-react";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import MerchantsTab from "@/components/merchant-admin/MerchantsTab";
@@ -9,7 +10,14 @@ import Logo from "@/components/Logo";
 
 const MerchantAdmin = () => {
   const navigate = useNavigate();
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded, isSignedIn } = useUser();
+
+  // Redirect to home if user is not signed in
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      navigate("/");
+    }
+  }, [isLoaded, isSignedIn, navigate]);
 
   if (!isLoaded) {
     return (
@@ -17,6 +25,11 @@ const MerchantAdmin = () => {
         <Loader2 className="w-12 h-12 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // Don't render anything if user is not signed in (will redirect)
+  if (!isSignedIn) {
+    return null;
   }
 
   return (

@@ -42,14 +42,14 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { name, api_version, api_urls, required_credentials, enabled } = req.body;
+    const { name, api_urls, required_credentials, enabled } = req.body;
 
     // Validate required fields
-    if (!name || !api_version) {
+    if (!name) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields',
-        message: 'Both "name" and "api_version" are required',
+        message: 'Platform "name" is required',
       });
     }
 
@@ -100,7 +100,6 @@ router.post('/', async (req, res) => {
     // Create new ecommerce detail
     const newDetail = new EcommerceDetail({
       name,
-      api_version,
       api_urls: api_urls || {},
       required_credentials: required_credentials || [],
       enabled: enabled !== undefined ? enabled : true,
@@ -161,7 +160,7 @@ router.patch('/:id', async (req, res) => {
     }
 
     // Define allowed fields for update
-    const allowedFields = ['name', 'api_version', 'api_urls', 'required_credentials', 'enabled'];
+    const allowedFields = ['name', 'api_urls', 'required_credentials', 'enabled'];
     const updateData = {};
 
     // Extract only allowed fields from request body

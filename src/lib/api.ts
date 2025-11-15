@@ -56,7 +56,6 @@ export interface CredentialField {
 export interface EcommerceDetail {
   _id: string;
   name: string;
-  api_version: string;
   api_urls?: Record<string, { endpoint: string; method: string }>;
   required_credentials?: CredentialField[];
   enabled: boolean;
@@ -230,6 +229,34 @@ export async function updateMerchant(id: string, data: Partial<Merchant>): Promi
   if (!res.ok) {
     const error = await res.json();
     throw new Error(error.message || 'Failed to update merchant');
+  }
+  const response = await res.json();
+  return response.data;
+}
+
+export async function updateMerchantStore(id: string, storeIndex: number, storeData: any): Promise<Merchant> {
+  const url = `${API_BASE_URL}/merchants/${id}/stores/${storeIndex}`;
+  console.log('updateMerchantStore - URL:', url);
+  console.log('updateMerchantStore - storeData:', storeData);
+
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(storeData),
+  });
+
+  console.log('updateMerchantStore - Response status:', res.status);
+  console.log('updateMerchantStore - Response headers:', res.headers.get('content-type'));
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error('updateMerchantStore - Error response:', errorText);
+    try {
+      const error = JSON.parse(errorText);
+      throw new Error(error.message || 'Failed to update store');
+    } catch (e) {
+      throw new Error(`Failed to update store: ${errorText.substring(0, 100)}`);
+    }
   }
   const response = await res.json();
   return response.data;

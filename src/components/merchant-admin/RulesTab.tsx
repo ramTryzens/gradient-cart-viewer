@@ -39,9 +39,10 @@ const RulesTab = () => {
   const [formData, setFormData] = useState({
     id: 0,
     key: "",
-    valueType: "boolean" as "boolean" | "number",
+    valueType: "boolean" as "boolean" | "number" | "string",
     boolValue: true,
     numValue: 0,
+    stringValue: "",
     description: "",
   });
 
@@ -91,12 +92,14 @@ const RulesTab = () => {
   const handleOpenDialog = (rule?: Rule) => {
     if (rule) {
       setEditingRule(rule);
+      const valueType = typeof rule.value === "boolean" ? "boolean" : typeof rule.value === "number" ? "number" : "string";
       setFormData({
         id: rule.id,
         key: rule.key,
-        valueType: typeof rule.value === "boolean" ? "boolean" : "number",
+        valueType: valueType,
         boolValue: typeof rule.value === "boolean" ? rule.value : true,
         numValue: typeof rule.value === "number" ? rule.value : 0,
+        stringValue: typeof rule.value === "string" ? rule.value : "",
         description: rule.description || "",
       });
     } else {
@@ -107,6 +110,7 @@ const RulesTab = () => {
         valueType: "boolean",
         boolValue: true,
         numValue: 0,
+        stringValue: "",
         description: "",
       });
     }
@@ -122,16 +126,12 @@ const RulesTab = () => {
       valueType: "boolean",
       boolValue: true,
       numValue: 0,
+      stringValue: "",
       description: "",
     });
   };
 
   const handleSubmit = () => {
-    if (!editingRule && (!formData.id || formData.id <= 0)) {
-      toast.error("Please enter a valid numeric ID (greater than 0)");
-      return;
-    }
-
     if (!formData.key) {
       toast.error("Please enter a rule key");
       return;
@@ -142,7 +142,16 @@ const RulesTab = () => {
       return;
     }
 
-    const value = formData.valueType === "boolean" ? formData.boolValue : formData.numValue;
+    if (formData.valueType === "string" && !formData.stringValue.trim()) {
+      toast.error("Please enter a string value");
+      return;
+    }
+
+    const value = formData.valueType === "boolean"
+      ? formData.boolValue
+      : formData.valueType === "number"
+      ? formData.numValue
+      : formData.stringValue;
 
     const ruleData: any = {
       key: formData.key,
@@ -155,15 +164,19 @@ const RulesTab = () => {
       ruleData.description = formData.description.trim();
     }
 
-    // Only include id when creating a new rule
+    // Auto-generate numeric id for new rules
     if (!editingRule) {
-      ruleData.id = formData.id;
+      // Find the maximum existing ID and add 1
+      const maxId = rules && rules.length > 0
+        ? Math.max(...rules.map(r => typeof r.id === 'number' ? r.id : 0))
+        : 0;
+      ruleData.id = maxId + 1;
     }
 
     console.log('Submitting rule data:', ruleData); // Debug log
 
     if (editingRule) {
-      // Use the numeric id for the update URL path
+      // Use the id for the update URL path
       updateMutation.mutate({ id: String(editingRule.id), data: ruleData });
     } else {
       createMutation.mutate(ruleData);
@@ -284,24 +297,6 @@ const RulesTab = () => {
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="rule-id">Rule ID *</Label>
-              <Input
-                id="rule-id"
-                type="number"
-                min="1"
-                value={formData.id}
-                onChange={(e) =>
-                  setFormData({ ...formData, id: parseInt(e.target.value) || 0 })
-                }
-                placeholder="e.g., 1, 2, 3"
-                disabled={!!editingRule}
-              />
-              <p className="text-xs text-muted-foreground">
-                Unique numeric identifier for this rule
-              </p>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="rule-key">Rule Key *</Label>
               <Input
                 id="rule-key"
@@ -324,7 +319,7 @@ const RulesTab = () => {
                 onValueChange={(value) =>
                   setFormData({
                     ...formData,
-                    valueType: value as "boolean" | "number",
+                    valueType: value as "boolean" | "number" | "string",
                   })
                 }
               >
@@ -338,6 +333,12 @@ const RulesTab = () => {
                   <RadioGroupItem value="number" id="number" />
                   <Label htmlFor="number" className="font-normal cursor-pointer">
                     Number (e.g., thresholds, limits)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="string" id="string" />
+                  <Label htmlFor="string" className="font-normal cursor-pointer">
+                    String (text values)
                   </Label>
                 </div>
               </RadioGroup>
@@ -366,7 +367,7 @@ const RulesTab = () => {
                   </div>
                 </RadioGroup>
               </div>
-            ) : (
+            ) : formData.valueType === "number" ? (
               <div className="space-y-2">
                 <Label htmlFor="num-value">Default Number Value *</Label>
                 <Input
@@ -384,6 +385,25 @@ const RulesTab = () => {
                 />
                 <p className="text-xs text-muted-foreground">
                   Must be a non-negative number (&gt;= 0)
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="string-value">Default String Value *</Label>
+                <Input
+                  id="string-value"
+                  type="text"
+                  value={formData.stringValue}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      stringValue: e.target.value,
+                    })
+                  }
+                  placeholder="e.g., USD, active, premium"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter a text value for this rule
                 </p>
               </div>
             )}

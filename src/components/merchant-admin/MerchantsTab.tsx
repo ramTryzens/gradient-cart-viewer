@@ -29,11 +29,12 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Copy, Eye, EyeOff, RefreshCw } from "lucide-react";
 import {
   getMerchantByUserId,
   createMerchant,
   updateMerchant,
+  updateMerchantStore,
   deleteMerchant,
   getEcommerceDetails,
   getRules,
@@ -45,15 +46,20 @@ const MerchantsTab = () => {
   const { user, isLoaded } = useUser();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMerchant, setEditingMerchant] = useState<Merchant | null>(null);
+  const [editingStoreIndex, setEditingStoreIndex] = useState<number | null>(null);
   const [currentUserMerchant, setCurrentUserMerchant] = useState<Merchant | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     storeName: "",
     platform: "",
     platformId: "",
+    hostName: "",
     storeDetails: {} as Record<string, string>,
     selectedRules: {} as Record<string, boolean | number>,
+    apiKey: "",
+    apiSecret: "",
   });
+  const [showApiSecret, setShowApiSecret] = useState(false);
 
   // Fetch data - only fetch current user's merchant
   const { data: merchants, isLoading: loadingMerchants } = useQuery({
@@ -127,6 +133,19 @@ const MerchantsTab = () => {
       updateMerchant(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["merchants", user?.id] });
+      toast.success("Store added successfully");
+      handleCloseDialog();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to add store");
+    },
+  });
+
+  const updateStoreMutation = useMutation({
+    mutationFn: ({ id, storeIndex, storeData }: { id: string; storeIndex: number; storeData: any }) =>
+      updateMerchantStore(id, storeIndex, storeData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["merchants", user?.id] });
       toast.success("Store updated successfully");
       handleCloseDialog();
     },
@@ -146,44 +165,59 @@ const MerchantsTab = () => {
     },
   });
 
-  const handleOpenDialog = (merchant?: Merchant) => {
-    if (merchant) {
+  const handleOpenDialog = (merchant?: Merchant, storeIndex?: number) => {
+    if (merchant && storeIndex !== undefined) {
+      // Editing an existing store
       setEditingMerchant(merchant);
-      // For now, we'll edit the first store if merchant has stores
-      const firstStore = merchant.stores?.[0];
+      setEditingStoreIndex(storeIndex);
+      const store = merchant.stores?.[storeIndex];
       setFormData({
         name: merchant.businessName || merchant.name || merchant.email,
-        storeName: firstStore?.storeName || "",
-        platform: firstStore?.platform || "",
-        platformId: firstStore?.platformId || "",
-        storeDetails: firstStore?.storeDetails || {},
-        selectedRules: firstStore?.businessRules || {},
+        storeName: store?.storeName || "",
+        platform: store?.platform || "",
+        platformId: store?.platformId || "",
+        hostName: (store as any)?.hostName || "",
+        storeDetails: store?.storeDetails || {},
+        selectedRules: store?.businessRules || {},
+        apiKey: (store as any)?.apiKey || "",
+        apiSecret: (store as any)?.apiSecret || "",
       });
     } else {
+      // Adding a new store
       setEditingMerchant(null);
+      setEditingStoreIndex(null);
       setFormData({
         name: currentUserMerchant?.businessName || currentUserMerchant?.name || currentUserMerchant?.email || user?.primaryEmailAddress?.emailAddress || "",
         storeName: "",
         platform: "",
         platformId: "",
+        hostName: "",
         storeDetails: {},
         selectedRules: {},
+        apiKey: "",
+        apiSecret: "",
       });
     }
+    setShowApiSecret(false);
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingMerchant(null);
+    setEditingStoreIndex(null);
     setFormData({
       name: "",
       storeName: "",
       platform: "",
       platformId: "",
+      hostName: "",
       storeDetails: {},
       selectedRules: {},
+      apiKey: "",
+      apiSecret: "",
     });
+    setShowApiSecret(false);
   };
 
   const handleRuleToggle = (ruleKey: string, ruleValue: boolean | number, checked: boolean) => {
@@ -199,26 +233,42 @@ const MerchantsTab = () => {
     });
   };
 
-  const handleRuleValueChange = (ruleKey: string, newValue: string) => {
-    const numValue = parseFloat(newValue);
-    if (!isNaN(numValue) && numValue >= 0) {
-      setFormData((prev) => ({
-        ...prev,
-        selectedRules: {
-          ...prev.selectedRules,
-          [ruleKey]: numValue,
-        },
-      }));
+  const handleRuleValueChange = (ruleKey: string, newValue: string, valueType: string) => {
+    let processedValue: string | number | boolean = newValue;
+
+    // Handle different value types
+    if (valueType === 'number') {
+      const numValue = parseFloat(newValue);
+      if (!isNaN(numValue) && numValue >= 0) {
+        processedValue = numValue;
+      } else {
+        return; // Don't update if invalid number
+      }
+    } else if (valueType === 'string') {
+      processedValue = newValue;
     }
+
+    setFormData((prev) => ({
+      ...prev,
+      selectedRules: {
+        ...prev.selectedRules,
+        [ruleKey]: processedValue,
+      },
+    }));
   };
 
   const handlePlatformChange = (platformName: string) => {
     const platform = platforms?.find((p) => p.name === platformName);
+    // Set hostname based on platform
+    const hostName = platformName.toLowerCase().includes('bigcommerce')
+      ? 'https://api.bigcommerce.com'
+      : '';
     // Reset storeDetails when platform changes
     setFormData((prev) => ({
       ...prev,
       platform: platformName,
       platformId: platform?._id || "",
+      hostName: hostName,
       storeDetails: {},
     }));
   };
@@ -233,6 +283,30 @@ const MerchantsTab = () => {
     }));
   };
 
+  const generateApiSecret = () => {
+    // Generate a random 32-character secret
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let secret = '';
+    for (let i = 0; i < 32; i++) {
+      secret += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setFormData((prev) => ({ ...prev, apiSecret: secret }));
+    toast.success("API Secret generated successfully");
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success(`${label} copied to clipboard`);
+    }).catch(() => {
+      toast.error("Failed to copy to clipboard");
+    });
+  };
+
+  const maskSecret = (secret: string) => {
+    if (!secret || secret.length <= 4) return secret;
+    return '•'.repeat(secret.length - 4) + secret.slice(-4);
+  };
+
   const handleSubmit = () => {
     if (!user?.id) {
       toast.error("User not authenticated");
@@ -241,6 +315,21 @@ const MerchantsTab = () => {
 
     if (!formData.storeName || !formData.platform) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (!formData.hostName) {
+      toast.error("Please enter a Host Name");
+      return;
+    }
+
+    if (!formData.apiKey) {
+      toast.error("Please enter an API Key");
+      return;
+    }
+
+    if (!formData.apiSecret) {
+      toast.error("Please enter or generate an API Secret");
       return;
     }
 
@@ -275,7 +364,10 @@ const MerchantsTab = () => {
       storeName: formData.storeName,
       platform: formData.platform,
       platformId: formData.platformId,
+      hostName: formData.hostName,
       storeDetails: formData.storeDetails,
+      apiKey: formData.apiKey,
+      apiSecret: formData.apiSecret,
       businessRules: formData.selectedRules,
     };
 
@@ -292,17 +384,27 @@ const MerchantsTab = () => {
 
     console.log('Submitting merchant data:', JSON.stringify(merchantData, null, 2));
 
-    // Determine if we should update or create
-    // Always update if the user already has a merchant (to add stores to it)
-    const existingMerchantId = currentUserMerchant?._id || editingMerchant?._id;
-
-    if (existingMerchantId) {
-      console.log('Updating existing merchant (adding store):', existingMerchantId);
-      console.log('Current merchant has', currentUserMerchant?.stores?.length || 0, 'stores');
-      updateMutation.mutate({ id: existingMerchantId, data: merchantData });
+    // Check if we're editing an existing store
+    if (editingMerchant && editingStoreIndex !== null) {
+      // Update existing store
+      console.log('Updating store at index:', editingStoreIndex, 'for merchant:', editingMerchant._id);
+      updateStoreMutation.mutate({
+        id: editingMerchant._id,
+        storeIndex: editingStoreIndex,
+        storeData: store
+      });
     } else {
-      console.log('Creating new merchant for user:', user.id);
-      createMutation.mutate(merchantData);
+      // Adding a new store or creating a new merchant
+      const existingMerchantId = currentUserMerchant?._id;
+
+      if (existingMerchantId) {
+        console.log('Adding new store to existing merchant:', existingMerchantId);
+        console.log('Current merchant has', currentUserMerchant?.stores?.length || 0, 'stores');
+        updateMutation.mutate({ id: existingMerchantId, data: merchantData });
+      } else {
+        console.log('Creating new merchant for user:', user.id);
+        createMutation.mutate(merchantData);
+      }
     }
   };
 
@@ -355,7 +457,7 @@ const MerchantsTab = () => {
               </TableRow>
             ) : (
               merchants?.flatMap((merchant) =>
-                merchant.stores?.map((store) => (
+                merchant.stores?.map((store, storeIndex) => (
                 <TableRow key={store.storeId} className="hover:bg-white/5 border-white/10">
                   <TableCell className="font-medium text-foreground">
                     {store.storeName}
@@ -412,7 +514,7 @@ const MerchantsTab = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleOpenDialog(merchant)}
+                        onClick={() => handleOpenDialog(merchant, storeIndex)}
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
@@ -488,11 +590,32 @@ const MerchantsTab = () => {
                     ?.filter((p) => p.enabled)
                     .map((platform) => (
                       <SelectItem key={platform._id} value={platform.name}>
-                        {platform.name} (v{platform.api_version})
+                        {platform.name}
                       </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Host Name Field */}
+            <div className="space-y-2">
+              <Label htmlFor="hostName">Host Name *</Label>
+              <Input
+                id="hostName"
+                type="text"
+                value={formData.hostName}
+                onChange={(e) =>
+                  setFormData({ ...formData, hostName: e.target.value })
+                }
+                placeholder="e.g., https://api.yourplatform.com"
+                disabled={formData.platform.toLowerCase().includes('bigcommerce')}
+                className={formData.platform.toLowerCase().includes('bigcommerce') ? 'bg-muted/50 cursor-not-allowed' : ''}
+              />
+              {formData.platform.toLowerCase().includes('bigcommerce') && (
+                <p className="text-xs text-muted-foreground">
+                  BigCommerce platform uses the default host: https://api.bigcommerce.com
+                </p>
+              )}
             </div>
 
             {/* Dynamic Credential Fields */}
@@ -533,6 +656,100 @@ const MerchantsTab = () => {
                 No credentials required for this platform
               </div>
             )}
+
+            {/* API Key and API Secret Fields */}
+            <div className="space-y-3 border border-white/10 rounded-lg p-4 bg-white/5">
+              <Label className="text-base">API Credentials *</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                API Key and Secret for authenticating requests to this store
+              </p>
+
+              {/* API Key */}
+              <div className="space-y-2">
+                <Label htmlFor="apiKey">
+                  API Key <span className="text-red-400 ml-1">*</span>
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="apiKey"
+                    type="text"
+                    value={formData.apiKey}
+                    onChange={(e) =>
+                      setFormData({ ...formData, apiKey: e.target.value })
+                    }
+                    placeholder="X-API-KEY"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(formData.apiKey, "API Key")}
+                    disabled={!formData.apiKey}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* API Secret */}
+              <div className="space-y-2">
+                <Label htmlFor="apiSecret">
+                  API Secret <span className="text-red-400 ml-1">*</span>
+                </Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="apiSecret"
+                      type={showApiSecret ? "text" : "password"}
+                      value={showApiSecret ? formData.apiSecret : maskSecret(formData.apiSecret)}
+                      onChange={(e) => {
+                        // Only allow changes in visible mode
+                        if (showApiSecret) {
+                          setFormData({ ...formData, apiSecret: e.target.value });
+                        }
+                      }}
+                      placeholder="X-API-SECRET"
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowApiSecret(!showApiSecret)}
+                      className="absolute right-0 top-0 h-full"
+                    >
+                      {showApiSecret ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={generateApiSecret}
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(formData.apiSecret, "API Secret")}
+                    disabled={!formData.apiSecret}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {formData.apiSecret
+                    ? `Last 4 digits: ${formData.apiSecret.slice(-4)}`
+                    : "Click the refresh button to generate a secure secret"}
+                </p>
+              </div>
+            </div>
 
             <div className="space-y-2">
               <Label>Business Rules * (Select at least one)</Label>
@@ -580,9 +797,26 @@ const MerchantsTab = () => {
                                     : rule.value
                                 }
                                 onChange={(e) =>
-                                  handleRuleValueChange(rule.key, e.target.value)
+                                  handleRuleValueChange(rule.key, e.target.value, "number")
                                 }
                                 className="w-24 h-7 text-xs"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            )}
+                          {typeof rule.value === "string" &&
+                            formData.selectedRules[rule.key] !== undefined && (
+                              <Input
+                                type="text"
+                                value={
+                                  typeof formData.selectedRules[rule.key] === "string"
+                                    ? (formData.selectedRules[rule.key] as string)
+                                    : rule.value
+                                }
+                                onChange={(e) =>
+                                  handleRuleValueChange(rule.key, e.target.value, "string")
+                                }
+                                className="w-48 h-7 text-xs"
+                                placeholder="Enter string value"
                                 onClick={(e) => e.stopPropagation()}
                               />
                             )}
@@ -610,17 +844,17 @@ const MerchantsTab = () => {
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
+              disabled={createMutation.isPending || updateMutation.isPending || updateStoreMutation.isPending}
             >
-              {createMutation.isPending || updateMutation.isPending ? (
+              {createMutation.isPending || updateMutation.isPending || updateStoreMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {editingMerchant ? "Updating..." : "Creating..."}
+                  {editingMerchant && editingStoreIndex !== null ? "Updating..." : editingMerchant ? "Adding..." : "Creating..."}
                 </>
-              ) : editingMerchant ? (
-                "Update Store Configuration"
+              ) : editingMerchant && editingStoreIndex !== null ? (
+                "Update Store"
               ) : (
-                "Create Store Configuration"
+                "Add Store"
               )}
             </Button>
           </DialogFooter>
