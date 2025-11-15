@@ -14,7 +14,9 @@ const N8N_API_KEY = process.env.N8N_API_KEY || 'test@123';
  * Request body:
  * {
  *   "customerId": string | number,
- *   "cartId": string
+ *   "cartId": string,
+ *   "merchantEmail": string (optional),
+ *   "storeId": string (optional)
  * }
  *
  * Response:
@@ -22,7 +24,8 @@ const N8N_API_KEY = process.env.N8N_API_KEY || 'test@123';
  */
 router.post('/evaluate', async (req, res) => {
   try {
-    const { customerId, cartId } = req.body;
+    const { customerId, cartId, merchantEmail, storeId } = req.body;
+    console.log("🚀 ~ req.body:", req.body)
 
     // Validate required fields
     if (!customerId || !cartId) {
@@ -33,6 +36,20 @@ router.post('/evaluate', async (req, res) => {
       });
     }
 
+    // Prepare payload for n8n
+    const payload = {
+      customerId,
+      cartId,
+    };
+
+    // Add optional fields if provided
+    if (merchantEmail) {
+      payload.merchantEmail = merchantEmail;
+    }
+    if (storeId) {
+      payload.storeId = storeId;
+    }
+
     // Call n8n webhook
     const response = await fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
@@ -40,10 +57,7 @@ router.post('/evaluate', async (req, res) => {
         'Content-Type': 'application/json',
         'X-API-Key': N8N_API_KEY,
       },
-      body: JSON.stringify({
-        customerId,
-        cartId,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
