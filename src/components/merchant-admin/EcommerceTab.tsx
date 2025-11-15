@@ -439,7 +439,7 @@ const EcommerceTab = () => {
               </div>
 
               {formData.required_credentials.length > 0 && (
-                <div className="space-y-3 border border-white/10 rounded-lg p-4 max-h-96 overflow-y-auto">
+                <div className="space-y-3 border border-white/10 rounded-lg p-4">
                   {formData.required_credentials.map((credential, index) => (
                     <div
                       key={index}

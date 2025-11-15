@@ -416,8 +416,13 @@ const RulesTab = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
+                onInput={(e) => {
+                  e.currentTarget.style.height = '';
+                  e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                }}
                 placeholder="Describe what this rule does..."
                 rows={3}
+                style={{ overflow: 'hidden', height: 'auto' }}
               />
             </div>
           </div>
