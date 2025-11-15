@@ -66,7 +66,7 @@ const Admin = () => {
           >
             ← Back to Home
           </Button>
-          <div className="relative bg-background/60 backdrop-blur-xl rounded-full p-1 border border-white/20 shadow-lg">
+          <div className="relative bg-background/60 backdrop-blur-xl rounded-full p-1 border border-white/20 shadow-lg leading-[0]">
             <UserButton
               afterSignOutUrl="/sign-in"
               appearance={{

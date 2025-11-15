@@ -75,7 +75,7 @@ const MerchantOnboarding = () => {
             <div className="absolute -inset-1 bg-gradient-to-r from-primary via-purple-500 to-primary rounded-full opacity-60 blur-md group-hover:opacity-100 transition-opacity duration-300" />
 
             {/* Button Container */}
-            <div className="relative bg-background/60 backdrop-blur-xl rounded-full p-1 border border-white/20 shadow-lg">
+            <div className="relative bg-background/60 backdrop-blur-xl rounded-full p-1 border border-white/20 shadow-lg leading-[0]">
               <UserButton
                 afterSignOutUrl="/sign-in"
                 appearance={{
