@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Download, Upload } from "lucide-react";
 import {
   getRules,
   createRule,
@@ -35,6 +35,7 @@ import {
 const RulesTab = () => {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportExportDialogOpen, setIsImportExportDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<Rule | null>(null);
   const [formData, setFormData] = useState({
     id: 0,
@@ -190,6 +191,169 @@ const RulesTab = () => {
     }
   };
 
+  // Import/Export functions
+  const downloadSampleTemplate = () => {
+    const sampleRules = [
+      {
+        key: "free_shipping_threshold",
+        value: 50,
+        enabled: true,
+        description: "Minimum order value for free shipping"
+      },
+      {
+        key: "loyalty_points_enabled",
+        value: true,
+        enabled: true,
+        description: "Enable loyalty points for customers"
+      },
+      {
+        key: "discount_code_prefix",
+        value: "SAVE",
+        enabled: true,
+        description: "Prefix for auto-generated discount codes"
+      }
+    ];
+
+    const blob = new Blob([JSON.stringify(sampleRules, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample-rules-template.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Sample template downloaded');
+  };
+
+  const exportCurrentRules = () => {
+    if (!rules || rules.length === 0) {
+      toast.error('No rules to export');
+      return;
+    }
+
+    // Export rules without MongoDB-specific fields and id (will be auto-generated on import)
+    const exportData = rules.map(({ _id, id, createdAt, updatedAt, ...rest }) => rest);
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `business-rules-export-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${rules.length} rule(s)`);
+  };
+
+  const handleImportRules = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/json') {
+      toast.error('Please upload a JSON file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importedRules = JSON.parse(content);
+
+        // Validate the imported data
+        if (!Array.isArray(importedRules)) {
+          toast.error('Invalid format: Expected an array of rules');
+          return;
+        }
+
+        // Validate each rule has required fields
+        const validationErrors: string[] = [];
+        importedRules.forEach((rule, index) => {
+          if (!rule.key) validationErrors.push(`Rule ${index + 1}: Missing 'key' field`);
+          if (rule.value === undefined) validationErrors.push(`Rule ${index + 1}: Missing 'value' field`);
+          if (!['boolean', 'number', 'string'].includes(typeof rule.value)) {
+            validationErrors.push(`Rule ${index + 1}: Invalid value type`);
+          }
+        });
+
+        if (validationErrors.length > 0) {
+          toast.error('Validation failed: ' + validationErrors[0]);
+          console.error('All validation errors:', validationErrors);
+          return;
+        }
+
+        // Check for duplicate keys with existing rules
+        const existingKeys = new Set(rules?.map(r => r.key) || []);
+        const duplicates = importedRules.filter(rule => existingKeys.has(rule.key));
+
+        if (duplicates.length > 0) {
+          const duplicateKeys = duplicates.map(r => r.key).join(', ');
+          toast.error(`Duplicate rule keys found: ${duplicateKeys}. These rules already exist and will be skipped to prevent data loss.`);
+          console.warn('Duplicate rules detected:', duplicates);
+        }
+
+        // Filter out duplicates - only import new rules
+        const newRules = importedRules.filter(rule => !existingKeys.has(rule.key));
+
+        if (newRules.length === 0) {
+          toast.warning('No new rules to import. All rules already exist.');
+          setIsImportExportDialogOpen(false);
+          return;
+        }
+
+        // Import only new rules
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const rule of newRules) {
+          try {
+            // Find the maximum existing ID and increment
+            const maxId = rules && rules.length > 0
+              ? Math.max(...rules.map(r => typeof r.id === 'number' ? r.id : 0))
+              : 0;
+
+            // Ensure required fields are set
+            const ruleData = {
+              ...rule,
+              id: rule.id || (maxId + successCount + 1), // Auto-generate ID if not provided
+              enabled: rule.enabled !== undefined ? rule.enabled : true,
+            };
+
+            await createRule(ruleData);
+            successCount++;
+          } catch (error) {
+            errorCount++;
+            console.error(`Failed to import rule ${rule.key}:`, error);
+          }
+        }
+
+        // Refresh the rules list
+        queryClient.invalidateQueries({ queryKey: ["rules"] });
+
+        // Show detailed results
+        const skippedCount = duplicates.length;
+        if (errorCount === 0 && skippedCount === 0) {
+          toast.success(`Successfully imported ${successCount} new rule(s)`);
+        } else if (errorCount === 0 && skippedCount > 0) {
+          toast.success(`Imported ${successCount} new rule(s). Skipped ${skippedCount} duplicate(s) to protect existing data.`);
+        } else {
+          toast.warning(`Imported ${successCount} rule(s), ${errorCount} failed, ${skippedCount} skipped (duplicates)`);
+        }
+
+        setIsImportExportDialogOpen(false);
+      } catch (error) {
+        toast.error('Failed to parse JSON file');
+        console.error('Import error:', error);
+      }
+    };
+
+    reader.readAsText(file);
+    // Reset the input
+    event.target.value = '';
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -207,10 +371,20 @@ const RulesTab = () => {
             Define business rules that merchants can configure
           </p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Rule
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsImportExportDialogOpen(true)}
+            className="gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Import/Export
+          </Button>
+          <Button onClick={() => handleOpenDialog()} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Rule
+          </Button>
+        </div>
       </div>
 
       <div className="border border-white/10 rounded-lg overflow-hidden">
@@ -445,6 +619,104 @@ const RulesTab = () => {
               ) : (
                 "Create Rule"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import/Export Dialog */}
+      <Dialog open={isImportExportDialogOpen} onOpenChange={setIsImportExportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import/Export Rules</DialogTitle>
+            <DialogDescription>
+              Download a sample template, export your current rules, or import rules from a JSON file
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Download Sample Template */}
+            <div className="border border-white/10 rounded-lg p-4 space-y-2">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-medium text-foreground">Download Sample Template</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Get a JSON template with example rules. IDs are auto-generated - just provide key, value, and description.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={downloadSampleTemplate}
+                  className="gap-2 shrink-0"
+                >
+                  <Download className="w-4 h-4" />
+                  Sample
+                </Button>
+              </div>
+            </div>
+
+            {/* Export Current Rules */}
+            <div className="border border-white/10 rounded-lg p-4 space-y-2">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-medium text-foreground">Export Current Rules</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Download all your current rules as a JSON file
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportCurrentRules}
+                  className="gap-2 shrink-0"
+                  disabled={!rules || rules.length === 0}
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                </Button>
+              </div>
+            </div>
+
+            {/* Import Rules */}
+            <div className="border border-white/10 rounded-lg p-4 space-y-2">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-medium text-foreground">Import Rules</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Upload a JSON file to add new rules. Existing rules are protected - duplicates will be skipped automatically.
+                  </p>
+                </div>
+                <label htmlFor="import-file">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 shrink-0"
+                    asChild
+                  >
+                    <span>
+                      <Upload className="w-4 h-4" />
+                      Import
+                    </span>
+                  </Button>
+                </label>
+                <input
+                  id="import-file"
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  onChange={handleImportRules}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsImportExportDialogOpen(false)}
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
