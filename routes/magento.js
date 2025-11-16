@@ -2,16 +2,11 @@ import express from 'express';
 
 const router = express.Router();
 
-// Debug: Check if environment variables are available at module load time
-console.log('[MAGENTO ROUTER INIT] process.env.MAGENTO_TOKEN:', process.env.MAGENTO_TOKEN);
-console.log('[MAGENTO ROUTER INIT] process.env.MAGENTO_API_URL:', process.env.MAGENTO_API_URL);
-
-// Magento API configuration
-const MAGENTO_API_URL = process.env.MAGENTO_API_URL || 'https://qa-psp-mage.tryzens-ignite.com';
-const MAGENTO_TOKEN = process.env.MAGENTO_TOKEN;
-
-console.log('[MAGENTO ROUTER INIT] MAGENTO_TOKEN constant:', MAGENTO_TOKEN);
-console.log('[MAGENTO ROUTER INIT] MAGENTO_API_URL constant:', MAGENTO_API_URL);
+// Magento API configuration - read lazily when needed, not at module load time
+const getMagentoConfig = () => ({
+  apiUrl: process.env.MAGENTO_API_URL || 'https://qa-psp-mage.tryzens-ignite.com',
+  token: process.env.MAGENTO_TOKEN
+});
 
 /**
  * Transform Magento cart response to BigCommerce format
@@ -64,34 +59,33 @@ function transformMagentoCart(magentoCart, magentoCartTotal) {
 router.get('/carts/:cartId', async (req, res) => {
   const { cartId } = req.params;
 
-  // Access environment variables directly here instead of at module load time
-  const MAGENTO_TOKEN_RUNTIME = process.env.MAGENTO_TOKEN;
-  const MAGENTO_API_URL_RUNTIME = process.env.MAGENTO_API_URL || 'https://qa-psp-mage.tryzens-ignite.com';
+  // Get configuration at request time
+  const { apiUrl, token } = getMagentoConfig();
 
   console.log("Request Params",req.params)
-  console.log("Magento Token",MAGENTO_TOKEN_RUNTIME)
+  console.log("Magento Token", token)
   console.log("🚀 ~ cartId:", cartId)
 
-  if (!MAGENTO_TOKEN_RUNTIME) {
+  if (!token) {
     return res.status(500).json({
       error: 'Magento API token not configured. Please set MAGENTO_TOKEN in your environment variables.'
     });
   }
 
   try {
-    const response = await fetch(`${MAGENTO_API_URL_RUNTIME}/rest/V1/carts/${cartId}`, {
+    const response = await fetch(`${apiUrl}/rest/V1/carts/${cartId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${MAGENTO_TOKEN_RUNTIME}`,
+        'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       }
     });
     // Calling only for grand total
-    const responseGrandTotal = await fetch(`${MAGENTO_API_URL_RUNTIME}/rest/V1/carts/${cartId}/totals`, {
+    const responseGrandTotal = await fetch(`${apiUrl}/rest/V1/carts/${cartId}/totals`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${MAGENTO_TOKEN_RUNTIME}`,
+        'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       }

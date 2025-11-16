@@ -70,6 +70,8 @@ function transformBigCommerceCart(cart, customerData, ordersData) {
 
   // Extract first address from customer data
   const mainAddress = customerData?.data?.[0]?.addresses[0] || null;
+  const email = customerData?.data?.[0]?.email;
+  if (!cart?.data?.email) cart.data.email = email;
 
   // Add properties inside cart.data
   if (cart.data) {
@@ -83,6 +85,7 @@ function transformBigCommerceCart(cart, customerData, ordersData) {
 // Proxy endpoint for cart details
 app.get('/api/carts/:cartId', async (req, res) => {
   const { cartId } = req.params;
+  const { customerId } = req.query;
 
   if (!BIGCOMMERCE_TOKEN) {
     return res.status(500).json({
@@ -110,7 +113,6 @@ app.get('/api/carts/:cartId', async (req, res) => {
     }
 
     const cart = await cartResponse.json();
-    const customerId = cart.data?.customer_id || '4';
 
     // Make customer and orders API calls in parallel
     const [customerResponse, ordersResponse] = await Promise.all([

@@ -2,9 +2,11 @@ import express from 'express';
 
 const router = express.Router();
 
-// n8n webhook configuration
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://tryzens-ai.app.n8n.cloud/webhook-test/getSmartOffers';
-const N8N_API_KEY = process.env.N8N_API_KEY || 'test@123';
+// n8n webhook configuration - read lazily when needed, not at module load time
+const getN8NConfig = () => ({
+  webhookUrl: process.env.N8N_WEBHOOK_URL || 'https://tryzens-ai.app.n8n.cloud/webhook-test/getSmartOffers',
+  apiKey: process.env.N8N_API_KEY || 'test@123'
+});
 
 /**
  * POST /api/evaluate
@@ -50,12 +52,15 @@ router.post('/evaluate', async (req, res) => {
       payload.storeId = storeId;
     }
 
+    // Get n8n configuration
+    const { webhookUrl, apiKey } = getN8NConfig();  
+
     // Call n8n webhook
-    const response = await fetch(N8N_WEBHOOK_URL, {
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': N8N_API_KEY,
+        'X-API-Key': apiKey,
       },
       body: JSON.stringify(payload),
     });

@@ -38,6 +38,13 @@ const MerchantAdmin = () => {
         {/* Logo */}
         <Logo />
 
+        {/* Page Title */}
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold text-foreground">
+            Merchant Admin Dashboard
+          </h1>
+        </div>
+
         {/* Header */}
         <div className="flex justify-end items-center gap-3 mb-8">
           <Button
