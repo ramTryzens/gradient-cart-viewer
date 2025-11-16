@@ -1,6 +1,10 @@
+import dotenv from 'dotenv';
+
+// Load environment variables FIRST before importing any modules
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import dbConnection from './config/database.js';
 import { initializeDatabase } from './config/initializeDB.js';
 import { initializeRules } from './config/initializeRules.js';
@@ -10,8 +14,6 @@ import merchantsRouter from './routes/merchants.js';
 import userRoutes from './server/routes/userRoutes.js';
 import smartOffersRouter from './routes/smartOffers.js';
 import magentoRouter from './routes/magento.js';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
