@@ -21,6 +21,7 @@ app.use(express.json());
 
 // BigCommerce API configuration
 const BIGCOMMERCE_API_URL = process.env.BIGCOMMERCE_API_URL;
+const BIGCOMMERCE_V2_API_URL = process.env.BIGCOMMERCE_V2_API_URL;
 const BIGCOMMERCE_TOKEN = process.env.BIGCOMMERCE_TOKEN;
 
 // Magento API configuration
@@ -54,6 +55,29 @@ app.use('/api', smartOffersRouter);
 // Magento routes
 app.use('/api/magento', magentoRouter);
 
+/**
+ * Transform BigCommerce cart response
+ * @param {Object} cart - BigCommerce cart response
+ * @param {Object} customerData - Customer data from v3/customers API
+ * @param {Object} ordersData - Orders data from v2/orders API
+ * @returns {Object} Transformed cart data
+ */
+function transformBigCommerceCart(cart, customerData, ordersData) {
+  // Extract number of orders
+  const numberOfOrders = ordersData?.length || 0;
+
+  // Extract first address from customer data
+  const mainAddress = customerData?.data?.[0]?.addresses[0] || null;
+
+  // Add properties inside cart.data
+  if (cart.data) {
+    cart.data.numberOfOrders = numberOfOrders;
+    cart.data.mainAddress = mainAddress;
+  }
+
+  return cart;
+}
+
 // Proxy endpoint for cart details
 app.get('/api/carts/:cartId', async (req, res) => {
   const { cartId } = req.params;
@@ -65,7 +89,8 @@ app.get('/api/carts/:cartId', async (req, res) => {
   }
 
   try {
-    const response = await fetch(`${BIGCOMMERCE_API_URL}/carts/${cartId}`, {
+    // First fetch the cart to get the customerId
+    const cartResponse = await fetch(`${BIGCOMMERCE_API_URL}/carts/${cartId}`, {
       headers: {
         'X-Auth-Token': BIGCOMMERCE_TOKEN,
         'Accept': 'application/json',
@@ -73,17 +98,46 @@ app.get('/api/carts/:cartId', async (req, res) => {
       }
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('BigCommerce API Error:', response.status, errorText);
-      return res.status(response.status).json({
-        error: `Failed to fetch cart: ${response.statusText}`,
+    if (!cartResponse.ok) {
+      const errorText = await cartResponse.text();
+      console.error('BigCommerce API Error:', cartResponse.status, errorText);
+      return res.status(cartResponse.status).json({
+        error: `Failed to fetch cart: ${cartResponse.statusText}`,
         details: errorText
       });
     }
 
-    const data = await response.json();
-    res.json(data);
+    const cart = await cartResponse.json();
+    const customerId = cart.data?.customer_id || '4';
+
+    // Make customer and orders API calls in parallel
+    const [customerResponse, ordersResponse] = await Promise.all([
+      fetch(`${BIGCOMMERCE_API_URL}/customers?id:in=${customerId}&include=addresses`, {
+        headers: {
+          'X-Auth-Token': BIGCOMMERCE_TOKEN,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      }),
+      fetch(`${BIGCOMMERCE_V2_API_URL}/orders?customer_id=${customerId}`, {
+        headers: {
+          'X-Auth-Token': BIGCOMMERCE_TOKEN,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      })
+    ]);
+
+    // Parse all responses
+    const [customerData, ordersData] = await Promise.all([
+      customerResponse.json(),
+      ordersResponse.json()
+    ]);
+
+    // Transform cart data
+    const transformedCart = transformBigCommerceCart(cart, customerData, ordersData);
+
+    res.json(transformedCart);
   } catch (error) {
     console.error('Error fetching cart:', error);
     res.status(500).json({
@@ -109,6 +163,7 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`🚀 Backend server running on http://localhost:${PORT}`);
       console.log(`📦 BigCommerce API URL: ${BIGCOMMERCE_API_URL}`);
+      console.log(`📦 BigCommerce V2 API URL: ${BIGCOMMERCE_V2_API_URL}`);
       console.log(`🔑 BigCommerce Token configured: ${BIGCOMMERCE_TOKEN ? 'Yes' : 'No'}`);
       console.log(`🛍️  Magento API URL: ${MAGENTO_API_URL}`);
       console.log(`🔑 Magento Token configured: ${MAGENTO_TOKEN ? 'Yes' : 'No'}`);
